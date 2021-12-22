@@ -7,7 +7,3 @@ __pycache__/
 .idea/
 idea/
 .git
-chtc_serpent_configs/**
-chtc_serpent_submissions/**
-chtc_serpent_gpu_side/server_config.json
-passwordless_ssh_rsaid.sh
