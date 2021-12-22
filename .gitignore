@@ -1,0 +1,13 @@
+.DS_Store
+**/.DS_Store
+**/__pycache__/
+__pycache__/
+**.idea/
+.idea/**
+.idea/
+idea/
+.git
+chtc_serpent_configs/**
+chtc_serpent_submissions/**
+chtc_serpent_gpu_side/server_config.json
+passwordless_ssh_rsaid.sh

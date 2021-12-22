@@ -1,0 +1,18 @@
+{
+  "guppy": {
+    "in_paths": {"disk_space": 100000000},
+    "submit_paths": {"disk_space": 100000000},
+    "out_paths": {"disk_space": 100000000}
+  },
+  "chtc":{
+    "submit_paths": {"disk_space": 100000000},
+    "in_paths": {"disk_space": 100000000},
+    "out_paths": {"disk_space": 100000000}
+
+  },
+  "local": {
+    "submit_paths": {"disk_space": 10000000},
+    "in_paths": {"disk_space": 10000000},
+    "out_paths": {"disk_space": 10000000}
+  }
+}
