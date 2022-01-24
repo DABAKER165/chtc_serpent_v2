@@ -269,6 +269,7 @@ done \n\
 else \n\
     filename="${{s%.*}}_out.tar.gz" \n\
 fi \n\
+rm -f ${{s}} \n\
 rm -f ${{filename}} \n\
 if [[ ${{t}} == "t" ]] ; then \n\
     find . -maxdepth 1 -type f \( ! -name "_condor_stderr" -a ! -name "_condor_stdout" -a ! -name "docker_stderror" -a ! -name "tarlist.txt" \) -print | sed "s|^\\./||"  > tarlist.txt \n\
@@ -305,20 +306,17 @@ rm check_list.txt\n'.format(script_string, results_dir, sample_dir)
                              sample_sheet_path):
         import os
 
-        required_key_list = ['docker_image',
-                             'ram',
+        required_key_list = ['ram',
                              'cpus',
                              'machine_requirements',
                              'disk_space',
                              'executable']
+        docker_key = 'docker_image'
         optional_key_list = ['priority_flag']
         gpu_keys_set = {'gpu_count',
                         'gpu_job_length'}
 
-        submit_string = "universe = docker\n\
-docker_image = ^DOCKER_IMAGE^ \n\
-\n\
-# logs\n\
+        submit_string = "# logs\n\
 Error = logs/$(Cluster).$(Process).err.txt\n\
 Output = logs/$(Cluster).$(Process).out.txt\n\
 Log = logs/$(Cluster).$(Process).log.txt\n\
@@ -355,7 +353,11 @@ queue s from ^SAMPLE_SHEET_NAME^"
         for key_i in optional_key_list:
             if key_i in chtc_mod_config.keys():
                 optional_string_list.append(chtc_mod_config[key_i])
-
+        if docker_key in chtc_mod_config.keys():
+            optional_string_list.append('universe = docker')
+            optional_string_list.append('docker_image = {0}'.format(chtc_mod_config[docker_key]))
+        else:
+            optional_string_list.append('universe = vanilla')
         if gpu_keys_set.issubset(chtc_mod_config.keys()):
             optional_string_list.append('request_gpus = {0}'.format(chtc_mod_config['gpu_count']))
             optional_string_list.append('+WantGPULab = true')

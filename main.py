@@ -191,9 +191,35 @@ def run_main(args):
                     exe_cmd = sc.make_executable_command(mod=mod_i,
                                                          incoming_ready=incoming_ready,
                                                          incoming_complete=incoming_complete)
+                    # lock module
+                    if 'lock_remote' in sc.config[mod_i]['local']:
+                        lock_module = sc.config[mod_i]['local']['lock_remote']
+
+                        server_name = sc.get_executable_server_name(lock_module)
+                        remote_dict = sc.get_unique_un_server_path(lock_module, server_name, 'transfer_lock_file_path')
+                        cmd = 'touch {0}'.format(remote_dict['path'])
+                        rm_file_out = run_ssh_cmd(cmd=cmd,
+                                                  un=remote_dict['un'],
+                                                  server=remote_dict['server'],
+                                                  cwd=None)
+                        print(cmd)
+
 
                     print('Local sh script: {0}'.format(exe_cmd))
                     subprocess.run([exe_cmd], shell=True)
+                    # unlock module
+                    if 'lock_remote' in sc.config[mod_i]['local']:
+                        lock_module = sc.config[mod_i]['local']['lock_remote']
+                        server_name = sc.get_executable_server_name(lock_module)
+                        remote_dict = sc.get_unique_un_server_path(lock_module, server_name, 'transfer_lock_file_path')
+                        cmd = 'rm -f {0}'.format(remote_dict['path'])
+                        print(cmd)
+                        rm_file_out = run_ssh_cmd(cmd=cmd,
+                                                  un=remote_dict['un'],
+                                                  server=remote_dict['server'],
+                                                  cwd=None)
+                        print(rm_file_out)
+
                     if 'arguments' not in mod_config['local'].keys():
                         pathlib.Path(sc.get_unique_path(mod_i, 'local', 'complete_file_path')).touch()
                         pathlib.Path(sc.get_unique_path(mod_i, 'local', 'ready_file_path')).touch()
