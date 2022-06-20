@@ -1002,7 +1002,7 @@ class SerpentConfig(SerpentOperations):
                     server=remote_path_dict['server'],
                     dest=remote_path_dict['path'],
                     server_is_dest=True,
-                    delete_flag=True)
+                    remove_source_files=True)
         print('Transferred local_compiled_config_dir to chtc')
 
     def transfer_static_files(self, server):
@@ -1233,9 +1233,9 @@ class SerpentConfig(SerpentOperations):
                         rsync_flag='-aP',
                         source_from_file_list=False,
                         cwd=None,
-                        check_sum_only=False,
+                        checksum_only=False,
                         ignore_errors=False,
-                        delete_flag=False)
+                        remove_source_files=False)
 
             checksum_result = rsync_files(source='{0}/'.format(remote_dir['path']),
                                           un=remote_dir['un'],
@@ -1246,7 +1246,7 @@ class SerpentConfig(SerpentOperations):
                                           rsync_flag='-aP',
                                           source_from_file_list=False,
                                           cwd=None,
-                                          check_sum_only=True)
+                                          checksum_only=True)
             print('checksum_value: {0}'.format(checksum_result))
             checksum_result_stdout = checksum_result.stdout.decode('utf-8').strip()
             if checksum_result_stdout == "0":

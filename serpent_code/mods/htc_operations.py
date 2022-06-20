@@ -273,7 +273,10 @@ rm -f ${{s}} \n\
 rm -f ${{filename}} \n\
 if [[ ${{t}} == "t" ]] ; then \n\
     find . -maxdepth 1 -type f \( ! -name "_condor_stderr" -a ! -name "_condor_stdout" -a ! -name "docker_stderror" -a ! -name "tarlist.txt" \) -print | sed "s|^\\./||"  > tarlist.txt \n\
-    tar -czvf ${{filename}} --remove-files  -T tarlist.txt \n\
+    tar -czvf ${{filename}} -T tarlist.txt \n\
+    for f in $(cat tarlist.txt) ; do \n\
+        rm -f "$f" \n\
+    done \n\
     rm -f tarlist.txt \n\
 fi \n\
 find . -maxdepth 1 -type f \( ! -name "_condor_stderr" -a ! -name "_condor_stdout" -a ! -name "docker_stderror" -a ! -name "check.md5" \) -exec md5sum "{{}}" + > check.md5 \n\
@@ -283,7 +286,7 @@ cp -f $(<check_list.txt) {1} \n\
 if md5sum --status -c check.md5; then \n\
     echo "MD5 PASSED: remove sample file" \n\
     if [[ ${{r}} == "t" ]] ; then \n\
-        rm -f {2}/${{s}} \n\
+        # rm -f {2}/${{s}} \n\
         echo {2}/${{s}} \n\
         echo "removed sample" \n\
     fi \n\

@@ -145,7 +145,19 @@ def read_json(config_path, empty={}):
         return empty
 
 
+def get_ssh_control_path(control_path='$HOME/.ssh/%L-%r@%h:%p'):
+    from os import environ
 
+    if control_path is None:
+        return '', False
+    if control_path != '':
+        control_dirs = control_path.split('/')
+        for dir_i in control_dirs:
+            if '$' in dir_i:
+                home = environ[dir_i[1:]]
+                control_path = control_path.replace(dir_i, home)
+        control_path = '-o ControlPath="{0}"'.format(control_path)
+    return control_path, True
 
 
 def run_ssh_cmd(cmd,
@@ -168,58 +180,33 @@ def run_ssh_cmd(cmd,
     Set to False if you can operate in parallel processing ex. kick off the submit_job script that loops endlessly.
     :return: subprocess.Popen output.
     """
-    import subprocess
-    if control_path is None:
-        control_path = ''
-    if control_path != '':
-        # note the leading space is required
-        control_path = ' -o ControlPath="{0}"'.format(control_path)
-        # there should be a leading space is in the control_path  string
-        # ssh -O check -o ControlPath="$HOME/.ssh/%L-%r@%h:%p" ${un}@${submit_node}
-        check_ssh_connection_string = 'ssh -O check{0} {1}@{2}'.format(control_path, un, server)
-        ##
-
-        ssh_connected_out = subprocess.run([check_ssh_connection_string],
-                                           shell=True,
-                                           stdout=subprocess.PIPE,
-                                           stderr=subprocess.PIPE)
-
-        ssh_connected_err = ssh_connected_out.stderr.decode('utf-8').strip()
-        ssh_connected = False
-        # print('ssh connected reply: {0}'.format(ssh_connected_err))
-        if (len(ssh_connected_err) > 0) and (ssh_connected_err[0] in ['C', 'M']):
-            ssh_connected = True
-
-        if not ssh_connected:
-            ssh_make_connection_string = 'ssh -nNf -o ControlMaster=yes{0} {1}@{2}'.format(control_path, un, server)
-            print(ssh_make_connection_string)
-            ssh_make_connection_out = subprocess.run([ssh_make_connection_string],
-                                                     shell=True,
-                                                     stdout=subprocess.PIPE,
-                                                     stderr=subprocess.PIPE)
-            ##
-            print(ssh_make_connection_out)
-            print('To manually stop ssh:\n ssh -O stop{0} {1}@{2}'.format(control_path, un, server))
+    from subprocess import Popen, PIPE, run as subprocess_run
+    control_path, use_control_path = check_reconnect_ssh_control_path(control_path=control_path,
+                                                                      un=un,
+                                                                      server=server)
 
     if (cwd == '.') or (cwd == ''):
         cwd = None
-    if rsync:
-        ssh_cmd_string = 'rsync -e \'ssh{0}\' {3}'.format(control_path, un, server, cmd)
-    else:
-        ssh_cmd_string = 'ssh{0} {1}@{2} "{3}"'.format(control_path, un, server, cmd)
-
+    # if rsync:
+    #     ssh_cmd_string = 'rsync -e \'ssh{0}\' {3}'.format(control_path, un, server, cmd)
+    # else:
+    # ssh_cmd_string = 'ssh{0} {1}@{2} "{3}"'.format(control_path, un, server, cmd)
+    ssh_connection_list = ['ssh',
+                           control_path,
+                           '{0}@{1}'.format(un, server),
+                           '{0}'.format(cmd)]
     debug_code = False
     if debug_code:
-        print(ssh_cmd_string)
+        print(' '.join(ssh_connection_list))
     if wait_to_finish:
-        ssh_cmd_out = subprocess.run([ssh_cmd_string],
-                                     shell=True,
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE,
+        ssh_cmd_out = subprocess_run(ssh_connection_list,
+                                     shell=False,
+                                     stdout=PIPE,
+                                     stderr=PIPE,
                                      cwd=cwd)
     else:
         # run a process asynchronously if wait is set to false.
-        ssh_cmd_out = subprocess.Popen([ssh_cmd_string], shell=True, stdout=None, stderr=None, close_fds=True)
+        ssh_cmd_out = Popen(ssh_connection_list, shell=False, stdout=None, stderr=None, close_fds=True)
     return ssh_cmd_out
 
 
@@ -234,124 +221,241 @@ def close_ssh(un,
     :param control_path: control path used for the connection
     :return: nothing.
     """
-    import subprocess
-    control_path = ' -o ControlPath="{0}"'.format(control_path)
-    # there should be a leading space is in the control_path  string
-    # ssh -O check -o ControlPath="$HOME/.ssh/%L-%r@%h:%p" ${un}@${submit_node}
-    # check connection if it is still connected (or ever connected)
-    check_ssh_connection_string = 'ssh -O check{0} {1}@{2}'.format(control_path, un, server)
-    ssh_connected_out = subprocess.run([check_ssh_connection_string],
-                                       shell=True,
-                                       stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE)
-    ssh_connected_err = ssh_connected_out.stderr.decode('utf-8').strip()
+    from subprocess import PIPE, run as subprocess_run
+
+    control_path, use_control_path = get_ssh_control_path(control_path)
+    if not use_control_path:
+        return
+    ssh_connected = check_ssh_connection(control_path, un, server)
     # if connected
-    if (len(ssh_connected_err) > 0) and (ssh_connected_err[0] == 'M'):
-        ssh_stop_connection_string = 'ssh -O stop{0} {1}@{2}'.format(control_path, un, server)
-        ssh_stop_connection_out = subprocess.run([ssh_stop_connection_string],
-                                                 shell=True,
-                                                 stdout=subprocess.PIPE,
-                                                 stderr=subprocess.PIPE)
+    if ssh_connected:
+        ssh_stop_connection_list = ['ssh',
+                                    '-O',
+                                    'stop',
+                                    control_path,
+                                    '{1}@{2}'.format(control_path, un, server)]
+        ssh_stop_connection_out = subprocess_run(ssh_stop_connection_list,
+                                                 shell=False,
+                                                 stdout=PIPE,
+                                                 stderr=PIPE)
     return
 
 
-def get_rsync_file_string(source,
-                          dest,
-                          flag='-azP',
-                          source_from_file_list=False,
-                          cwd=None,
-                          check_sum_only=False,
-                          ignore_errors=False,
-                          delete_flag=False):
-    """
-    Generates the rsync string used by the ssh command
-    :param source: source directory
-    :param dest: destination directory
-    :param source_from_file_list: Allows you to pass a list (return delimited txt filepath) instead of a dir or filepath
-    :param cwd: change the current working directory if needed for relative paths.
-    :param check_sum_only: Set to true if you only want to check if the files from source/dest match by Checksum.
-    (no transfer happens if set to True, just returns false or true if the files match.)
-    :param ignore_errors: Ignore typical errors as the set parameter has (in case a source dir or dest does not exist).
-    :param delete_flag: Delete after transfer if set to true, you are trusting the rsync to check properly.
-    :return: Returns the rsync string command minus the server information
-    """
-    # source_from_file_list must be relative path from same parent directly.  Use cwd to choose parent directory
-    # all parent directories/subdirectories listed in th source will be copied
-    # if it is a input list then make a string delimited by space
-    if isinstance(source, list):
-        source = ' '.join(source)
-    if source_from_file_list:
-        source = '--files-from={0} .'.format(source)
-    additional_flags = ''
-    if ignore_errors:
-        additional_flags = '{0} --ignore_errors'.format(additional_flags)
+def check_ssh_connection(control_path, un, server):
+    from subprocess import PIPE, run as subprocess_run
+    check_ssh_connection_list = ['ssh',
+                                 '-O',
+                                 'check',
+                                 control_path,
+                                 '{0}@{1}'.format( un, server)]
 
-    if check_sum_only:
-        rsync_string = '-a --dry-run --out-format="%f"{0} --checksum {1} {2} | wc -l |awk \'{{$1=$1}}1\''.format(
-            additional_flags,
-            source,
-            dest)
-        return rsync_string, cwd
-    if delete_flag:
-        additional_flags = '{0} --delete'.format(additional_flags)
+    ssh_connected_out = subprocess_run(check_ssh_connection_list,
+                                       shell=False,
+                                       stdout=PIPE,
+                                       stderr=PIPE)
 
-    rsync_string = '{0}{1} {2} {3}'.format(flag, additional_flags, source, dest)
-    print(rsync_string)
-    return rsync_string, cwd
+    ssh_connected_err = ssh_connected_out.stderr.decode('utf-8').strip()
+    ssh_connected = False
+    # print('ssh connected reply: {0}'.format(ssh_connected_err))
+    if (len(ssh_connected_err) > 0) and (ssh_connected_err[0] in ['C', 'M']):
+        ssh_connected = True
+        # there should be a leading space is in the control_path  string
+    # ssh -O check -o ControlPath="$HOME/.ssh/%L-%r@%h:%p" ${un}@${submit_node}
+
+    # print('ssh connected reply: {0}'.format(ssh_connected_err))
+    if (len(ssh_connected_err) > 0) and (ssh_connected_err[0] in ['C', 'M']):
+        ssh_connected = True
+    return ssh_connected
 
 
-def rsync_files(source,
-                un,
-                server,
-                dest,
+def check_reconnect_ssh_control_path(control_path='$HOME/.ssh/%L-%r@%h:%p', un=None, server=None):
+    from subprocess import PIPE, run as subprocess_run
+    control_path, use_control_path = get_ssh_control_path(control_path)
+    if not use_control_path:
+        return '', False
+
+    ssh_connected = check_ssh_connection(control_path, un, server)
+
+    if not ssh_connected:
+        check_ssh_connection_list = ['ssh',
+                                     '-nNf',
+                                     '-o ControlMaster=yes',
+                                     control_path,
+                                     '{0}@{1}'.format(un, server)]
+
+        print(' '.join(check_ssh_connection_list))
+        ssh_make_connection_out = subprocess_run(check_ssh_connection_list,
+                                                 shell=False,
+                                                 stdout=PIPE,
+                                                 stderr=PIPE)
+        ##
+        print(ssh_make_connection_out)
+        print('To manually stop ssh:\n ssh -O stop{0} {1}@{2}'.format(control_path, un, server))
+
+    return control_path, use_control_path
+
+
+def rsync_files(source=None,
+                un=None,
+                server=None,
+                dest=None,
                 server_is_dest=True,
+                remote=True,
+                compressed=False,
                 control_path='$HOME/.ssh/%L-%r@%h:%p',
-                rsync_flag='-azP',
+                rsync_flag='-ahP',
                 source_from_file_list=False,
-                cwd=None,
-                check_sum_only=False,
+                cwd='/',
+                checksum_only=False,
                 ignore_errors=False,
-                delete_flag=False):
+                remove_source_files=False):
     """
-    this rsync_files is only for remote directory transfer only to local (or local to remote).
-    :param source: source directory
-    :param un: Remote username
-    :param server: remote server or ip address or domain.
-    :param dest: destination directory
-    :param server_is_dest: True by default, set to false if the local directory is the destination.
-    :param control_path: Allows to use the same ssh connecton (with out reopening new ones if it exists).
-    :param rsync_flag: Allows to use a custom flag for file transfer (if not zipped or archive etc.)
-    :param source_from_file_list: Allows you to pass a list (return delimited txt filepath) instead of a dir or filepath
-    :param cwd: change the current working directory if needed for relative paths.
-    :param check_sum_only: Set to true if you only want to check if the files from source/dest match by Checksum.
-    (no transfer happens if set to True, just returns false or true if the files match.)
-    :param ignore_errors: Ignore typical errors as the set parameter has (in case a source dir or dest does not exist).
-    :param delete_flag: Delete after transfer if set to true, you are trusting the rsync to check properly.
-    :return: Only returns if the check_sum_only is True, else returns an error statement.
-    """
-    # Add the server and un to the correct isde
+   this rsync_files is only for remote directory transfer only to local (or local to remote).
+   :param source: <string> source directory
+   :param un: <string> Remote username
+   :param server: <string> remote server or ip address or domain.
+   :param dest: <string> destination directory
+   :param server_is_dest: <bool> set to False if the local directory is the destination; True, if server is destination.
+   :param remote: <bool> if sending or recieving from remote site, un server is required (not None).
+   :param compressed: <bool> compress before sending to save Network but slows I/O
+   :param control_path: <string>  Allows to use the same ssh connecton (with out reopening new ones if it exists).
+   :param rsync_flag: <string> Allows to use a custom flag for file transfer (if not zipped or archive etc.)
+   :param source_from_file_list: <string> Allows you to pass a list in a (return delimited txt filepath) instead of dir
+   :param cwd: <string> change the current working directory if needed for relative paths. (source from filelist)
+   :param checksum_only: <bool> Set to true if you only want to check if the files from source/dest match by Checksum.
+   (no transfer happens if set to True, just returns false or true if the files match.)
+   :param ignore_errors: <bool> Ignore typical errors, but not all rsync versions support it so do not use.
+   :param remove_source_files: <bool> delete source files after transfer
+   :return: , Returns dictionary:
+    {'error': <bool>, if True if error while running rsync, false if not.
+                   'checksum_passed': <bool>, True if checksum passed.
+                   'checksum_failed_count': <int> of file count 0 if none failed, -1 if not running checksum only
+                   Prints to terminal: Parsed Std out to the terminal (or stderr it there was an error needed)
+   """
+    from subprocess import Popen, PIPE
 
-    if server_is_dest:
-        dest = '{0}@{1}:{2}'.format(un, server, dest)
+    if (source is None) or (dest is None):
+        print('source or dest not declared')
+        return {'error': True,
+                'checksum_passed': False,
+                'checksum_failed_count': 1}
+
+    run_list = ['rsync']
+    use_control_path = False
+    if remote and (un is not None) and (server is not None):
+        control_path, use_control_path = check_reconnect_ssh_control_path(control_path=control_path,
+                                                                          un=un,
+                                                                          server=server)
+        if server_is_dest:
+            dest = '{0}@{1}:{2}'.format(un, server, dest)
+        else:
+            source = '{0}@{1}:{2}'.format(un, server, source)
+        # Get the rsync string and the cwd
+        if use_control_path:
+            run_list.append('-e')
+            run_list.append('ssh {0}'.format(control_path))
+    if compressed:
+        run_list.append('{0}z'.format(rsync_flag))
     else:
-        source = '{0}@{1}:{2}'.format(un, server, source)
-    # Get the rsync string and the cwd
-    rsync_string, cwd = get_rsync_file_string(source=source,
-                                              dest=dest,
-                                              flag=rsync_flag,
-                                              source_from_file_list=source_from_file_list,
-                                              cwd=cwd,
-                                              check_sum_only=check_sum_only,
-                                              ignore_errors=ignore_errors,
-                                              delete_flag=delete_flag)
-    # run the ssh cmd.
-    ssh_cmd_out = run_ssh_cmd(cmd=rsync_string,
-                              server=server,
-                              un=un,
-                              control_path=control_path,
-                              rsync=True,
-                              cwd=cwd)
-    return ssh_cmd_out
+        run_list.append(rsync_flag)
+
+    if ignore_errors:
+        run_list.append('--ignore_errors')
+    if remove_source_files:
+        run_list.append('--remove-source-files')
+    if source_from_file_list:
+        if cwd != '.':
+            # files cannot have same name
+            run_list.append('--no-R')
+        run_list.append('--files-from={0}'.format(source))
+        run_list.append(cwd)
+
+    else:
+        run_list.append(source)
+
+    run_list.append(dest)
+
+    result_dict = {'error': False,
+                   'checksum_passed': True,
+                   'checksum_failed_count': 0}
+    if checksum_only:
+        run_list = ['rsync']
+        addl_list = ['-ro',
+                     '--dry-run',
+                     '--out-format="%f"',
+                     '--checksum',
+                     source,
+                     dest]
+        if use_control_path:
+            run_list.append('-e')
+            run_list.append('ssh {0}'.format(control_path))
+        run_list = run_list + addl_list
+        #     p1 = subprocess.Popen(run_list, stdout=PIPE,stderr=PIPE, bufsize=1, universal_newlines=True)
+        check_error = False
+        line_count = 0
+        checksum_passed = True
+        file_count = 0
+        print(' '.join(run_list))
+        with Popen(run_list, stdout=PIPE, stderr=PIPE, bufsize=1, universal_newlines=True) as p1:
+            for line in iter(p1.stderr.readline, b''):
+                print(line)
+                if len(line) == 0:
+                    break
+                check_error = True
+                checksum_passed = False
+            for line in iter(p1.stdout.readline, b''):
+                if len(line) == 0:
+                    break
+                print('stdout', line.strip())
+                checksum_passed = False
+                file_count += 1
+        result_dict['checksum_passed'] = checksum_passed
+        result_dict['checksum_failed_count'] = file_count
+        result_dict['error'] = check_error
+
+        print('checksum_passed: {0}'.format(checksum_passed))
+        print('file_count: {0}'.format(file_count))
+        print('Error: {0}'.format(check_error))
+        return result_dict
+    else:
+        firstline = True
+        items2 = []
+        is_error = False
+        printed_first_line = False
+        print(' '.join(run_list))
+        with Popen(run_list, stdout=PIPE, stderr=PIPE, bufsize=1, universal_newlines=True) as p:
+            for line in iter(p.stdout.readline, b''):
+                if len(line) == 0:
+                    if printed_first_line:
+                        print(" ".join(items))
+                    break
+                # print(err)
+                items = line.strip().split()
+                # Save over only if it has a % which is a status update on the transfer.
+                if len(items) > 1 and len(items2) > 1 and items2[1].endswith('%') and items[1].endswith('%'):
+                    print(" ".join(tuple(filter(None, items2))), end='\x1b\r')
+                elif len(items2) > 0:
+                    print(" ".join(items2))
+                # Print the first line if it exists else save the line to check if it is a print over update line
+                if firstline:
+                    firstline = False
+                    print(" ".join(items))
+                else:
+                    items2 = items
+                    printed_first_line = True
+
+            # Get any error messages and final lines (final lines typically blank) by.
+            stout, sterr = p.communicate()
+            if len(stout.strip()) > 0:
+                print(stout.strip())
+            # print error if it exists and save as error
+            if len(sterr) > 0:
+                print(sterr)
+                result_dict['error'] = True
+                result_dict['checksum_passed'] = False
+                result_dict['checksum_failed_count'] = -1
+                return result_dict
+        return result_dict
 
 
 def get_configuration_filepaths(submission_config_dir):

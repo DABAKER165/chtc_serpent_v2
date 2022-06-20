@@ -282,8 +282,19 @@ def run_main(args):
                         # this may need to be dynamically named
                         # Needs to trail with '/' to transfer the folder contents and not the folder isself
                         transfer_from_dir = mod_config[server_name]['transfer_to_server']
+                        print(transfer_from_dir)
                         if transfer_from_dir[len(transfer_from_dir) - 1] != '/':
-                            transfer_from_dir = transfer_from_dir + '/'
+                            if transfer_from_dir[-2:] == '/"':
+                                pass
+                            elif transfer_from_dir[len(transfer_from_dir) - 1] == '"':
+                                transfer_from_dir = transfer_from_dir[:-1] + '/"'
+                            else:
+                                transfer_from_dir = transfer_from_dir + '/'
+                        # else:
+                        #     transfer_from_dir = transfer_from_dir + '/'
+
+                        if transfer_from_dir[len(transfer_from_dir) - 1] == '"':
+                            transfer_from_dir = transfer_from_dir[1:-1]
                         remote_dict = sc.get_unique_un_server_path(mod_i, server_name, 'module_in_dir')
                         rsync_files(transfer_from_dir,
                                     un=remote_dict['un'],
@@ -378,6 +389,8 @@ def run_main(args):
 
                             remote_dict = sc.get_unique_un_server_path(mod_i, server_name, 'status_dir')
                             local_path = sc.get_unique_path(mod_i, 'local', 'status_dir')
+                            print('{0}/'.format(remote_dict['path']))
+                            print('{0}/'.format(local_path))
                             rsync_files('{0}/'.format(remote_dict['path']),
                                         un=remote_dict['un'],
                                         server=remote_dict['server'],
@@ -387,7 +400,7 @@ def run_main(args):
                                         un=remote_dict['un'],
                                         server=remote_dict['server'],
                                         dest=remote_dict['path'],
-                                        server_is_dest=False)
+                                        server_is_dest=True)
                             if server_module_complete and incoming_complete:
                                 print('{0} is complete and the local is complete'.format(server_name))
                             else:

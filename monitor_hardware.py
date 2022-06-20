@@ -133,7 +133,7 @@ def run_main(args):
                                                       rsync_flag='-aP',
                                                       source_from_file_list=False,
                                                       cwd=None,
-                                                      check_sum_only=True)
+                                                      checksum_only=True)
                         checksum_result_stdout = checksum_result.stdout.decode('utf-8').strip()
                         if checksum_result_stdout == "0":
                             print('rsync success')

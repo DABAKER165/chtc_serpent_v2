@@ -7,3 +7,4 @@ __pycache__/
 .idea/
 idea/
 .git
+/serpent_code/mods/rsync_rubust.py
