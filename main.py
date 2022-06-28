@@ -206,6 +206,7 @@ def run_main(args):
 
 
                     print('Local sh script: {0}'.format(exe_cmd))
+                    sc.chmod_executable(mod=mod_i)
                     subprocess.run([exe_cmd], shell=True)
                     # unlock module
                     if 'lock_remote' in sc.config[mod_i]['local']:

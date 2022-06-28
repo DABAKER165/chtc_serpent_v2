@@ -166,6 +166,19 @@ class SerpentOperations:
 
         return arguments
 
+    def chmod_executable(self, mod):
+        import os
+        import subprocess
+        executable = self.config[mod]['local']['executable']
+        executable_dir = self.get_unique_path(mod, 'local', 'module_code_dir')
+        preexectuable = ''
+        if executable[-3:] == '.sh':
+            executable_cmd = os.path.join(executable_dir, executable)
+            exe_cmd = 'chmod +x {0}'.format(executable_cmd)
+            subprocess.run([exe_cmd], shell=True)
+        return
+
+
     def make_executable_command(self,
                                 mod,
                                 incoming_ready=True,
