@@ -308,7 +308,8 @@ def rsync_files(source=None,
                 cwd='/',
                 checksum_only=False,
                 ignore_errors=False,
-                remove_source_files=False):
+                remove_source_files=False,
+                delete_flag=False):
     """
    this rsync_files is only for remote directory transfer only to local (or local to remote).
    :param source: <string> source directory
@@ -326,6 +327,8 @@ def rsync_files(source=None,
    (no transfer happens if set to True, just returns false or true if the files match.)
    :param ignore_errors: <bool> Ignore typical errors, but not all rsync versions support it so do not use.
    :param remove_source_files: <bool> delete source files after transfer
+   :param delete_flag: <bool> deletes extra files from teh destination folder (if you transfered file 1.txt to a folder
+   with 2.txt: 2.txt will be deleted in the destination folders
    :return: , Returns dictionary:
     {'error': <bool>, if True if error while running rsync, false if not.
                    'checksum_passed': <bool>, True if checksum passed.
@@ -363,6 +366,8 @@ def rsync_files(source=None,
         run_list.append('--ignore_errors')
     if remove_source_files:
         run_list.append('--remove-source-files')
+    if delete_flag:
+        run_list.append('--delete')
     if source_from_file_list:
         if cwd != '.':
             # files cannot have same name

@@ -1015,7 +1015,7 @@ class SerpentConfig(SerpentOperations):
                     server=remote_path_dict['server'],
                     dest=remote_path_dict['path'],
                     server_is_dest=True,
-                    remove_source_files=True)
+                    delete_flag=True)
         print('Transferred local_compiled_config_dir to chtc')
 
     def transfer_static_files(self, server):
