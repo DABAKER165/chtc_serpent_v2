@@ -253,7 +253,7 @@ def run_main(args):
                             static_files_list = mod_config[server_name]['static_files'].split(',')
                         if isinstance(static_files_list, dict):
                             static_files_list = list(set(static_files_list.values()))
-                        print(static_files_list)
+                        # print(static_files_list)
                         remote_dict = sc.get_unique_un_server_path(mod_i, server_name, 'static_dir')
                         for static_file in static_files_list:
                             rsync_files(static_file,
