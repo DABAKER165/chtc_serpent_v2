@@ -257,14 +257,15 @@ def check_ssh_connection(control_path, un, server):
     ssh_connected_err = ssh_connected_out.stderr.decode('utf-8').strip()
     ssh_connected = False
     # print('ssh connected reply: {0}'.format(ssh_connected_err))
-    if (len(ssh_connected_err) > 0) and (ssh_connected_err[0] in ['C', 'M']):
+    # print(ssh_connected_err)
+    if (len(ssh_connected_err) > 0) and (ssh_connected_err[0] in ['M']):
         ssh_connected = True
         # there should be a leading space is in the control_path  string
     # ssh -O check -o ControlPath="$HOME/.ssh/%L-%r@%h:%p" ${un}@${submit_node}
 
     # print('ssh connected reply: {0}'.format(ssh_connected_err))
-    if (len(ssh_connected_err) > 0) and (ssh_connected_err[0] in ['C', 'M']):
-        ssh_connected = True
+    # if (len(ssh_connected_err) > 0) and (ssh_connected_err[0] in ['C', 'M']):
+    #     ssh_connected = True
     return ssh_connected
 
 
@@ -276,21 +277,21 @@ def check_reconnect_ssh_control_path(control_path='$HOME/.ssh/%L-%r@%h:%p', un=N
 
     ssh_connected = check_ssh_connection(control_path, un, server)
 
-    if not ssh_connected:
-        check_ssh_connection_list = ['ssh',
-                                     '-nNf',
-                                     '-o ControlMaster=yes',
-                                     control_path,
-                                     '{0}@{1}'.format(un, server)]
-
-        print(' '.join(check_ssh_connection_list))
-        ssh_make_connection_out = subprocess_run(check_ssh_connection_list,
-                                                 shell=False,
-                                                 stdout=PIPE,
-                                                 stderr=PIPE)
-        ##
-        print(ssh_make_connection_out)
-        print('To manually stop ssh:\n ssh -O stop{0} {1}@{2}'.format(control_path, un, server))
+    # if not ssh_connected:
+    #     check_ssh_connection_list = ['ssh',
+    #                                  '-nNf',
+    #                                  '-o ControlMaster=yes',
+    #                                  control_path,
+    #                                  '{0}@{1}'.format(un, server)]
+    #
+    #     print(' '.join(check_ssh_connection_list))
+    #     ssh_make_connection_out = subprocess_run(check_ssh_connection_list,
+    #                                              shell=False,
+    #                                              stdout=PIPE,
+    #                                              stderr=PIPE)
+    #     ##
+    #     print(ssh_make_connection_out)
+    #     print('To manually stop ssh:\n ssh -O stop{0} {1}@{2}'.format(control_path, un, server))
 
     return control_path, use_control_path
 

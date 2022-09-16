@@ -247,7 +247,13 @@ def run_main(args):
                     # These are shared files between runs so they should not go in a run specific directory
                     # These files could be several GB so we dont want to move TB's of data for no reason.
                     if 'static_files' in mod_config[server_name]:
-                        static_files_list = mod_config[server_name]['static_files'].split(',')
+                        # Allows the file input to be a list, dictionary or string that is split by ','
+                        static_files_list = mod_config[server_name]['static_files']
+                        if isinstance(static_files_list, str):
+                            static_files_list = mod_config[server_name]['static_files'].split(',')
+                        if isinstance(static_files_list, dict):
+                            static_files_list = list(set(static_files_list.values()))
+                        print(static_files_list)
                         remote_dict = sc.get_unique_un_server_path(mod_i, server_name, 'static_dir')
                         for static_file in static_files_list:
                             rsync_files(static_file,

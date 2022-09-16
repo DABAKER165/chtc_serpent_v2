@@ -450,7 +450,13 @@ queue s from ^SAMPLE_SHEET_NAME^"
         source_filepath_list.append(os.path.join(self.get_unique_path(mod, server, 'module_in_dir'),
                                                  '${s}'))
         if keys_exists(self.config, keys=[mod, server, 'static_files'])[0]:
-            static_files_list = self.config[mod][server]['static_files'].split(',')
+            # Allows the file input to be a list, dictionary or string that is split by ','
+            static_files_list = self.config[mod][server]['static_files']
+            if isinstance(static_files_list, str):
+                static_files_list = static_files_list.split(',')
+            if isinstance(static_files_list, dict):
+                static_files_list = list(set(static_files_list.values()))
+
             for static_file in static_files_list:
                 source_filepath_list.append(os.path.join(self.get_unique_path(mod, server, 'static_dir'),
                                                          os.path.basename(static_file)))

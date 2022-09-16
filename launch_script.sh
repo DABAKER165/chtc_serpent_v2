@@ -12,3 +12,4 @@ python3 ~/github/chtc_serpent_v2/monitor_hardware.py \
 --alert_config ~/github/chtc_serpent_v2/serpent_configs/alert_limits.json \
 --monitoring_dir ~/github/chtc_serpent_v2/serpent_submissions
 
+
