@@ -1,5 +1,19 @@
 # Serpent
+- Updated Requirements:
+    - You must have rsa keys to store the unsername and password for each chtc server (transfer + submit)
+    - you must add the following to the config for reconnecting to a previous ssh session (~/.ssh/config)
+    - replace <transver_server_addr> and <submit_server_addr> with relevant addresses
+```
+Host <transfer_server_addr>
+	ControlPath ~/.ssh/%r@%h:%p
+	ControlMaster auto
+	ControlPersist yes
 
+Host <submit_server_addr>
+	ControlPath ~/.ssh/%r@%h:%p
+	ControlMaster auto
+	ControlPersist yes
+```
 - Remote pipeline management system.
     - Efficiently manages the transfer of data across servers
     - Minimizes manual settings of a run using defaults
