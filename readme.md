@@ -1,19 +1,4 @@
 # Serpent
-- Updated Requirements:
-    - You must have rsa keys to store the unsername and password for each chtc server (transfer + submit)
-    - you must add the following to the config for reconnecting to a previous ssh session (~/.ssh/config)
-    - replace <transver_server_addr> and <submit_server_addr> with relevant addresses
-```
-Host <transfer_server_addr>
-	ControlPath ~/.ssh/%r@%h:%p
-	ControlMaster auto
-	ControlPersist yes
-
-Host <submit_server_addr>
-	ControlPath ~/.ssh/%r@%h:%p
-	ControlMaster auto
-	ControlPersist yes
-```
 - Remote pipeline management system.
     - Efficiently manages the transfer of data across servers
     - Minimizes manual settings of a run using defaults
@@ -26,7 +11,68 @@ Host <submit_server_addr>
     - Uses secure ssh and allows to store credentials locally and securely.
     - "Pollers" can be written to automatically kicks off runs.
     - Uses snakemake (optional, if on docker image) to manage automatic multithreading across scripts
+# Quick start up
+## setting up ssh
+- This pipeline uses ssh to establish secure connection
+- Without additional configuration, manual intervention is required to establish a connection (i.e. password entry)
+- The following items are strongly recommended and/or required for every username / remote host combination
+  - Storing credentials with RSA keys.
+    - Store the credentials for remote connections in a rsa file
+  - Attempt to reconnect to an existing ssh session instead of opening a new session.
+    - Configure the  use of a ControlPath, ControlMaster and ControlPersist in the .ssh/config file for relavent hosts
+### Create and Store id_rsa/.ssh credentials keys
+- example commands for linux/macosx shown below
+```bash
+# example to add rsa_id on MacOSx or Ubuntu/Debian:
+# Please use a method as approved by our security teams:
+# first add your ssh to a new user specific id_rsa key.    
 
+username=your_user_name
+remote_host=remote_host_ip_address
+
+ssh-keygen -t rsa -f ~/.ssh/id_rsa_${username}
+cp ~/.ssh/id_rsa_${username}.pub ~/.ssh/authorized_keys
+ssh-copy-id -i ~/.ssh/id_rsa_${username}.pub ${username}@${remote_host}
+# type password two times.
+```
+```bash
+# add to .ssh/config: (i.e. bbedit or nano). Do not use text editor (adds a different new line style than expected)!!!
+echo ""; \
+echo "Host ${remote_host}"; \
+echo "HostName ${remote_host}"; \
+echo "User ${username}"; \
+echo "Identityfile2 ~.ssh/${username}"
+```
+```bash
+# test connection and approve connection
+ssh ${username}@${remote_host}
+# follow prompt to approve the connection and properly add to known hosts
+# Repeat for the other computers of interest.
+```
+### Edit config file to restablish connections
+- Modify per your local it requirements
+- Example shown below (~/.ssh/config)
+```text
+Host *
+	IdentitiesOnly yes
+	TCPKeepAlive yes
+	ServerAliveInterval 120
+	IPQoS=throughput
+
+Host host.ip.addr.XXX
+HostName host.ip.addr.XXX
+ControlPath ~/.ssh/%r@%h:%p
+ControlMaster auto
+ControlPersist yes
+Identityfile2 ~/.ssh/id_rsa_username
+
+Host host.ip.addr.XXY
+HostName host.ip.addr.XXY
+ControlPath ~/.ssh/%r@%h:%p
+ControlMaster auto
+ControlPersist yes
+Identityfile2 ~/.ssh/id_rsa_username2
+```
 # Primary Components
 
 - Serpent Local management service (runs locally)
