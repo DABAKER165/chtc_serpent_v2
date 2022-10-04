@@ -244,8 +244,8 @@ class SerpentCHTCOperations(SerpentOperations):
         # start with the options and bin bash statement
         script_string = '#! /bin/bash \n\
 \n\
-t=t\n\
-r=t\n\
+t=None\n\
+r=None\n\
 while getopts s:t:r: opt; do \n\
 case $opt in \n\
 s) s=$OPTARG;; \n\
@@ -306,6 +306,7 @@ rm check_list.txt\n'.format(script_string, results_dir, sample_dir)
     def make_submission_file(self,
                              filepath,
                              chtc_mod_config,
+                             samples_per_row,
                              sample_sheet_path):
         import os
 
@@ -336,7 +337,7 @@ executable = chtc_wrapper.sh \n\
 \n\
 # arguments to shell script\n\
 # arguments are in the chtc_wrapper.sh\n\
-Arguments = -s $(s) \n\
+Arguments = -s $(s)^arg_s^\n\
 \n\
 # file transfer options\n\
 should_transfer_files = YES \n\
@@ -345,8 +346,17 @@ when_to_transfer_output = ON_EXIT \n\
 # Make sure your reference files are here, and you change the folder path for DHO_experiment\n\
 transfer_input_files = ^EXECUTABLE^,chtc_wrapper.sh  \n\
 # described here: https://chtc.cs.wisc.edu/multiple-jobs.shtml\n\
-queue s from ^SAMPLE_SHEET_NAME^"
+queue ^sample_string^ from ^SAMPLE_SHEET_NAME^"
 
+        if samples_per_row < 2:
+            submit_string = submit_string.replace('^sample_string^', 's')
+        if samples_per_row == 2:
+            submit_string = submit_string.replace('^sample_string^', 's, r')
+            submit_string = submit_string.replace('^arg_s^', ' -r $(r)')
+
+        if samples_per_row > 2:
+            submit_string = submit_string.replace('^sample_string^', 's, r, t')
+            submit_string = submit_string.replace('^arg_s^', ' -r $(r) -t ${t}')
         for key_i in required_key_list:
             placeholder_string = '^{0}^'.format(key_i.upper())
             replace_string = chtc_mod_config[key_i]
@@ -403,16 +413,25 @@ queue s from ^SAMPLE_SHEET_NAME^"
         import shutil
         import subprocess
         # Get the samples and see what is new
-
+        sample_extension = keys_exists(self.config, alt=None, keys=[mod, server, 'sample_extension'])[1]
         sample_list = os.listdir(self.get_unique_path(mod, server, 'module_in_dir'))
         sample_list = [x for x in sample_list if x[0] != "."]
+        if sample_extension is not None:
+            sample_list = self.get_sample_list_from_extension(sample_list=sample_list,
+                                                sample_dir=self.get_unique_path(mod, server, 'module_in_dir'),
+                                                extension=sample_extension,
+                                                              return_basenames=True)
+
+
         new_sample_list = list(set(sample_list) - set(submitted_sample_list))
+
+
         # Finished Get the samples and see what is new
         # If nothing is new then quit
         if len(new_sample_list) < 1:
             print("No New Samples")
             return
-
+        samples_per_row = int(new_sample_list[0].count(",")) + 1
         # Create submission folder
         now = datetime.now()
 
@@ -440,6 +459,7 @@ queue s from ^SAMPLE_SHEET_NAME^"
         # make submission_file
         self.make_submission_file(filepath=submit_filepath,
                                   chtc_mod_config=self.config[mod][server],
+                                  samples_per_row=samples_per_row,
                                   sample_sheet_path=sample_sheet_path)
         # copy the directory for a spot for the results to go
 
@@ -447,8 +467,15 @@ queue s from ^SAMPLE_SHEET_NAME^"
         arguments_dict = keys_exists(self.config, alt={}, keys=[mod, server, 'arguments'])[1]
         source_filepath_list = []
         # if sample_dir is not None:
-        source_filepath_list.append(os.path.join(self.get_unique_path(mod, server, 'module_in_dir'),
-                                                 '${s}'))
+        if samples_per_row > 0:
+            source_filepath_list.append(os.path.join(self.get_unique_path(mod, server, 'module_in_dir'),
+                                                     '${s}'))
+        if samples_per_row > 1:
+            source_filepath_list.append(os.path.join(self.get_unique_path(mod, server, 'module_in_dir'),
+                                                     '${r}'))
+        if samples_per_row > 2:
+            source_filepath_list.append(os.path.join(self.get_unique_path(mod, server, 'module_in_dir'),
+                                                     '${t}'))
         if keys_exists(self.config, keys=[mod, server, 'static_files'])[0]:
             # Allows the file input to be a list, dictionary or string that is split by ','
             static_files_list = self.config[mod][server]['static_files']
@@ -488,7 +515,45 @@ queue s from ^SAMPLE_SHEET_NAME^"
                             module_name=mod)
 
         return
+    def get_sample_list_from_extension(self, sample_list, sample_dir, extension, return_basenames=False):
+        import os
 
+        def trim_extensions(x, extension_list = []):
+            for extension_i in extension_list:
+                if len(extension_i) < 1:
+                    continue
+                if x.endswith(extension_i):
+                    ext_len = -len(extension_i)
+                    return x[:ext_len]
+            return x
+
+        if type(extension) == str:
+            extension = [extension]
+        sample_filenames = [x for x in sample_list if x.endswith(tuple(extension)) and (not x.startswith('._'))]
+        sample_list = sample_filenames
+        if not return_basenames:
+            sample_list = [os.path.join(sample_dir, x) for x in sample_filenames]
+
+        sample_group_list = [trim_extensions(x, extension_list=extension) for x in sample_filenames]
+        sample_group_set = set(sample_group_list)
+        if len(sample_group_set) != len(sample_group_list):
+            sample_path_dict = {}
+            # Group into a dictionary the paths by the sample
+            for sample_path_i, sample_group_i in zip(sample_list, sample_group_list):
+                if sample_group_i not in sample_path_dict.keys():
+                    sample_path_dict[sample_group_i] = [sample_path_i]
+                else:
+                    temp_list = sample_path_dict[sample_group_i]
+                    temp_list.append(sample_path_i)
+                    sample_path_dict[sample_group_i] = temp_list
+            # remake the sample list as a csv style without headers
+            sample_list = []
+            for sample_group_i, path_list_i in sample_path_dict.items():
+                path_list_i.sort(reverse=True)
+                sample_str_list = ','.join(path_list_i)
+                sample_list.append(sample_str_list)
+
+        return sample_list
     #########
     # Probably should go in a different class by leave here for now.
     def make_sample_list(self,
@@ -500,6 +565,8 @@ queue s from ^SAMPLE_SHEET_NAME^"
                          extension=None):
         import os
         from datetime import datetime
+
+
         now = datetime.now()
         sample_list = []
         submitted_sample_list = []
@@ -525,9 +592,9 @@ queue s from ^SAMPLE_SHEET_NAME^"
             elif extension == 'parent_directory':
                 sample_list = [sample_dir]
             else:
-                if type(extension) == str:
-                    extension = [extension]
-                sample_list = [os.path.join(sample_dir, x) for x in sample_list if x.endswith(tuple(extension))]
+                self.get_sample_list_from_extension(sample_list=sample_list,
+                                                    sample_dir=sample_dir,
+                                                    extension=extension)
         else:
             if os.path.isfile(sample_list_path) and (os.stat(sample_list_path).st_size != 0):
                 sample_list = []
