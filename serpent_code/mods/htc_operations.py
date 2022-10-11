@@ -244,13 +244,15 @@ class SerpentCHTCOperations(SerpentOperations):
         # start with the options and bin bash statement
         script_string = '#! /bin/bash \n\
 \n\
-t=None\n\
-r=None\n\
-while getopts s:t:r: opt; do \n\
+t=t\n\
+r=t\n\
+while getopts s:t:r:u:v: opt; do \n\
 case $opt in \n\
 s) s=$OPTARG;; \n\
 t) t=$OPTARG;; \n\
 r) r=$OPTARG;; \n\
+u) u=$OPTARG;; \n\
+v) v=$OPTARG;; \n\
 * ) usage; \n\
 exit \n\
 1;; \n\
@@ -281,8 +283,9 @@ if [[ ${{t}} == "t" ]] ; then \n\
 fi \n\
 find . -maxdepth 1 -type f \( ! -name "_condor_stderr" -a ! -name "_condor_stdout" -a ! -name "docker_stderror" -a ! -name "check.md5" \) -exec md5sum "{{}}" + > check.md5 \n\
 sed \'s/^.*\\( .*\\).*$/\\1/\' check.md5 > check_list.txt \n\
+cat check_list.txt \n\
 perl -pi -w -e "s:./:{1}/:g" check.md5 \n\
-cp -f $(<check_list.txt) {1} \n\
+while read line; do cp -f $line {1}/; done <  check_list.txt\n\
 if md5sum --status -c check.md5; then \n\
     echo "MD5 PASSED: remove sample file" \n\
     if [[ ${{r}} == "t" ]] ; then \n\
@@ -349,14 +352,15 @@ transfer_input_files = ^EXECUTABLE^,chtc_wrapper.sh  \n\
 queue ^sample_string^ from ^SAMPLE_SHEET_NAME^"
 
         if samples_per_row < 2:
+            submit_string = submit_string.replace('^arg_s^', '')
             submit_string = submit_string.replace('^sample_string^', 's')
         if samples_per_row == 2:
-            submit_string = submit_string.replace('^sample_string^', 's, r')
-            submit_string = submit_string.replace('^arg_s^', ' -r $(r)')
+            submit_string = submit_string.replace('^sample_string^', 's, u')
+            submit_string = submit_string.replace('^arg_s^', ' -u $(u)')
 
         if samples_per_row > 2:
-            submit_string = submit_string.replace('^sample_string^', 's, r, t')
-            submit_string = submit_string.replace('^arg_s^', ' -r $(r) -t ${t}')
+            submit_string = submit_string.replace('^sample_string^', 's, u, v')
+            submit_string = submit_string.replace('^arg_s^', ' -u $(u) -v ${v}')
         for key_i in required_key_list:
             placeholder_string = '^{0}^'.format(key_i.upper())
             replace_string = chtc_mod_config[key_i]
