@@ -300,6 +300,7 @@ class SerpentOperations:
             if not completed_trigger_exists and ('input_completed_trigger' in self.config[mod_name][server_i].keys()):
                 completed_trigger_exists = True
                 completed_trigger_string = self.config[mod_name][server_i]['input_completed_trigger']
+        print(start_trigger_exists, mod_name, server_i)
         # if neither exist then there is no tiggers we just continue and return tue, true
         if not start_trigger_exists and not completed_trigger_exists:
             return True, True
@@ -309,8 +310,8 @@ class SerpentOperations:
             return ready_flag, ready_flag
         # if only the input_completed_trigger exists then set them both to the input_completed_trigger flag
         if completed_trigger_exists and not start_trigger_exists:
-            completed_flag = self.parse_value(completed_trigger_string, calling_server,status_dir)
-            return completed_flag, completed_flag
+            completed_flag = self.parse_value(completed_trigger_string, calling_server, status_dir)
+            return True, completed_flag
         # if both exists then check the status of each and return each value
         if completed_trigger_exists and start_trigger_exists:
             ready_flag = self.parse_value(start_trigger_string, calling_server,status_dir)

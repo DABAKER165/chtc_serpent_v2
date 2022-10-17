@@ -221,11 +221,11 @@ def run_main(args):
                                                   cwd=None)
                         print(rm_file_out)
 
-                    if 'arguments' not in mod_config['local'].keys():
+                    if ('arguments' not in mod_config['local'].keys()) and incoming_complete:
                         pathlib.Path(sc.get_unique_path(mod_i, 'local', 'complete_file_path')).touch()
                         pathlib.Path(sc.get_unique_path(mod_i, 'local', 'ready_file_path')).touch()
                     else:
-                        if '--status_dir' not in mod_config['local']['arguments'].keys():
+                        if ('--status_dir' not in mod_config['local']['arguments'].keys()) and incoming_complete:
                             print('No Status Dir creating touches')
                             pathlib.Path(sc.get_unique_path(mod_i, 'local', 'complete_file_path')).touch()
                             pathlib.Path(sc.get_unique_path(mod_i, 'local', 'ready_file_path')).touch()

@@ -37,6 +37,8 @@ class SerpentCHTCOperations(SerpentOperations):
     def completed_to_json(self, mod, server):
         from pathlib import Path
         import os
+        import shutil
+        import json
         submitted_record_json = read_json(self.get_unique_path(mod, server, 'submitted_json_path'), empty=[])
         completed_record_json = read_json(self.get_unique_path(mod, server, 'completed_json_path'), empty=[])
         submit_name = self.get_submit_name()
@@ -54,39 +56,92 @@ class SerpentCHTCOperations(SerpentOperations):
         print(completed_iwd_list)
         if len(completed_iwd_list) > 0:
             Path(self.get_unique_path(mod, server, 'exe_ready_file_path')).touch()
+
+        completed_json_path = self.get_unique_path(mod,
+                                                   server,
+                                                   'completed_json_path')
+        completed_backup_filepath = '{0}_{1}{2}'.format(completed_json_path[:-5], "_backup", '.json')
+        # completed_json = read_json(completed_json_path, empty=[])
+
         for submitted_record in filtered_submitted_record_json:
             iwd_i = submitted_record['iwd']
             print(iwd_i)
-            if iwd_i not in completed_iwd_list:
-                condor_q_held_path = self.get_unique_path(mod, server, 'condor_q_held_path')
-                job_completed, held_samples, remain, total = self.job_status(condor_q_held_path=condor_q_held_path,
-                                                                             attribute='Iwd',
-                                                                             value=iwd_i)
-                print(job_completed, held_samples, remain, total)
-                if job_completed:
-                    sample_sheet_path = os.path.join(iwd_i, 'sample_sheet.txt')
-                    # record as completed in the json file.
-                    iwd_results_dir = os.path.join(self.get_unique_path(mod, server, 'module_out_dir'),
-                                                   os.path.basename(iwd_i))
-                    completed_json_path = self.get_unique_path(mod,
-                                                               server,
-                                                               'completed_json_path')
-                    completed_json = self.record_as_json(iwd=iwd_i,
-                                                         held_samples=held_samples,
-                                                         json_path=completed_json_path,
-                                                         submission_dir=self.get_unique_path(mod,
-                                                                                             server,
-                                                                                             'submit_dir'),
-                                                         mod_submit_dir=self.get_unique_path(mod,
-                                                                                             server,
-                                                                                             'module_working_dir'),
-                                                         sample_dir=self.get_unique_path(mod,
-                                                                                         server,
-                                                                                         'module_in_dir'),
-                                                         submission_name=self.get_submit_name(),
-                                                         module_name=mod,
-                                                         iwd_results_dir=iwd_results_dir,
-                                                         sample_sheet_path=sample_sheet_path)
+            condor_q_held_path = self.get_unique_path(mod, server, 'condor_q_held_path')
+            job_completed, held_samples, remain, total, returned_log_files_number = self.job_status(condor_q_held_path=condor_q_held_path,
+                                                                                                    attribute='Iwd',
+                                                                                                    value=iwd_i)
+            if len(returned_log_files_number) > 0:
+                completed_sample_list=[]
+                sample_sheet_path = os.path.join(iwd_i, 'sample_sheet.txt')
+                if os.path.exists(sample_sheet_path):
+                    sample_list = open(sample_sheet_path).read().splitlines()
+
+                    for sample_index in returned_log_files_number:
+                        try:
+                            completed_sample_list.append(sample_list[int(sample_index)])
+                        except:
+                            pass
+                iwd_results_dir = os.path.join(self.get_unique_path(mod, server, 'module_out_dir'),
+                                               os.path.basename(iwd_i))
+
+                add_record = {}
+                add_record['iwd'] = iwd_i
+                add_record['submission_dir'] = self.get_unique_path(mod,
+                                                                    server,
+                                                                    'submit_dir')
+                add_record['mod_submit_dir'] = self.get_unique_path(mod,
+                                                                    server,
+                                                                    'module_working_dir')
+                add_record['sample_list'] = completed_sample_list
+                add_record['held_samples'] = held_samples
+                add_record['sample_dir'] = self.get_unique_path(mod,
+                                                                server,
+                                                                'module_in_dir')
+                add_record['submission_name'] = self.get_submit_name()
+                add_record['module_name'] = mod
+                add_record['iwd_results_dir'] = iwd_results_dir
+                for i in range(0, len(filtered_completed_record_json)):
+                    if 'iwd' in filtered_completed_record_json[i].keys():
+                        if iwd_i == filtered_completed_record_json[i]['iwd']:
+                            if 'sample_list' in filtered_completed_record_json[i].keys():
+                                old_sample_list = filtered_completed_record_json[i]['sample_list']
+                                if isinstance(old_sample_list, list):
+                                    add_record['sample_list'] = list(set(completed_sample_list + old_sample_list))
+                            del filtered_completed_record_json[i]
+                            break
+
+                filtered_completed_record_json.append(add_record)
+        if os.path.exists(completed_json_path):
+            if os.path.exists(completed_backup_filepath):
+                os.remove(completed_backup_filepath)
+            shutil.copyfile(completed_json_path, completed_backup_filepath)
+            os.remove(completed_json_path)
+        with open(completed_json_path, 'w') as f:
+            json.dump(filtered_completed_record_json, f)
+                # if iwd_i in completed_iwd_list:
+                #
+                # if iwd_i not in completed_iwd_list:
+
+                    # print(job_completed, held_samples, remain, total)
+                    # if job_completed:
+                    #     # record as completed in the json file.
+                    #
+                    #     completed_json = self.record_as_json(iwd=iwd_i,
+                    #                                          held_samples=held_samples,
+                    #                                          json_path=completed_json_path,
+                    #                                          submission_dir=self.get_unique_path(mod,
+                    #                                                                              server,
+                    #                                                                              'submit_dir'),
+                    #                                          mod_submit_dir=self.get_unique_path(mod,
+                    #                                                                              server,
+                    #                                                                              'module_working_dir'),
+                    #                                          sample_dir=self.get_unique_path(mod,
+                    #                                                                          server,
+                    #                                                                          'module_in_dir'),
+                    #                                          submission_name=self.get_submit_name(),
+                    #                                          module_name=mod,
+                    #                                          iwd_results_dir=iwd_results_dir,
+                    #                                          sample_sheet_path=sample_sheet_path)
         return completed_json, held_samples
 
     def check_completion(self, q_json, iwd, attribute='TransferInput'):
@@ -112,9 +167,10 @@ class SerpentCHTCOperations(SerpentOperations):
             return False, held_list, 0, 0
 
         held_count = len(held_list)
+        returned_log_files_number = [x.split('.')[1] for x in returned_log_files if x.endswith('.out.txt')]
         remaining_count = submitted_count - held_count - (log_file_count / 2)
         print('counts', submitted_count, held_count, log_file_count, remaining_count)
-        return remaining_count == 0, held_list, remaining_count, submitted_count
+        return remaining_count == 0, held_list, remaining_count, submitted_count, returned_log_files_number
 
     def chtc_held_filter_attribute(self, q_json, attribute='Iwd', value=None):
         # Loop through the array and pull out where cluster_id = ClusterID
@@ -204,6 +260,7 @@ class SerpentCHTCOperations(SerpentOperations):
                 sample_list = open(sample_sheet_path).read().splitlines()
             else:
                 print('Warning: missing sample list and sample_sheet path does not exist')
+
         # backup file
         now = datetime.now()
         dt_string = now.strftime("%Y_%m_%d__%H_%M_%S")
@@ -476,10 +533,10 @@ queue ^sample_string^ from ^SAMPLE_SHEET_NAME^"
                                                      '${s}'))
         if samples_per_row > 1:
             source_filepath_list.append(os.path.join(self.get_unique_path(mod, server, 'module_in_dir'),
-                                                     '${r}'))
+                                                     '${u}'))
         if samples_per_row > 2:
             source_filepath_list.append(os.path.join(self.get_unique_path(mod, server, 'module_in_dir'),
-                                                     '${t}'))
+                                                     '${v}'))
         if keys_exists(self.config, keys=[mod, server, 'static_files'])[0]:
             # Allows the file input to be a list, dictionary or string that is split by ','
             static_files_list = self.config[mod][server]['static_files']

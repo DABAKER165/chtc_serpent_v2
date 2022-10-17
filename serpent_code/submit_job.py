@@ -182,7 +182,7 @@ while loop_timer < 1:
                         not keys_exists(sc.config, [mod_i, server_i, 'arguments', '--status_dir'])[0]):
                     print('No Status Dir creating touches')
                     Path(sc.get_unique_path(mod_i, server_i, 'exe_ready_file_path')).touch()
-                    if samples_uploaded:
+                    if samples_uploaded and incoming_complete:
                         Path(sc.get_unique_path(mod_i, server_i, 'exe_complete_file_path')).touch()
                 if (sample_list_path is not None) and (os.path.isfile(sample_list_path)):
                     Path(sc.get_unique_path(mod_i, server_i, 'submitted_sample_list_path')).touch()
