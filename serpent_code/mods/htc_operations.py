@@ -67,9 +67,14 @@ class SerpentCHTCOperations(SerpentOperations):
             iwd_i = submitted_record['iwd']
             print(iwd_i)
             condor_q_held_path = self.get_unique_path(mod, server, 'condor_q_held_path')
+            if not os.path.exists(iwd_i):
+                continue
             job_completed, held_samples, remain, total, returned_log_files_number = self.job_status(condor_q_held_path=condor_q_held_path,
                                                                                                     attribute='Iwd',
                                                                                                     value=iwd_i)
+            if iwd_i == '/home/dabaker3/serpent/sra_cryptic_lineages/SRA_221017/sra_cryptic/sra_cryptic_2022_10_18__11_15_18':
+                print('Exists 1018')
+                print(returned_log_files_number)
             if len(returned_log_files_number) > 0:
                 completed_sample_list=[]
                 sample_sheet_path = os.path.join(iwd_i, 'sample_sheet.txt')
@@ -147,8 +152,8 @@ class SerpentCHTCOperations(SerpentOperations):
     def check_completion(self, q_json, iwd, attribute='TransferInput'):
         import os
         log_files = os.listdir(os.path.join(iwd, 'logs'))
-        print(os.path.join(iwd, 'logs'))
-        print(log_files)
+        # print(os.path.join(iwd, 'logs'))
+        # print(log_files)
         returned_log_files = [x for x in log_files if x[-7:] in ['err.txt', 'out.txt']]
         submitted_files = [x for x in log_files if x[-7:] == 'log.txt']
         log_file_count = len(returned_log_files)
