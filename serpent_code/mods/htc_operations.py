@@ -372,7 +372,8 @@ rm check_list.txt\n'.format(script_string, results_dir, sample_dir)
                              filepath,
                              chtc_mod_config,
                              samples_per_row,
-                             sample_sheet_path):
+                             sample_sheet_path,
+                             tar_files):
         import os
 
         required_key_list = ['ram',
@@ -412,14 +413,14 @@ when_to_transfer_output = ON_EXIT \n\
 transfer_input_files = ^EXECUTABLE^,chtc_wrapper.sh  \n\
 # described here: https://chtc.cs.wisc.edu/multiple-jobs.shtml\n\
 queue ^sample_string^ from ^SAMPLE_SHEET_NAME^"
-
+        if not tar_files:
+            submit_string = submit_string.replace('^arg_s^', '^arg_s^ -t f')
         if samples_per_row < 2:
             submit_string = submit_string.replace('^arg_s^', '')
             submit_string = submit_string.replace('^sample_string^', 's')
         if samples_per_row == 2:
             submit_string = submit_string.replace('^sample_string^', 's, u')
             submit_string = submit_string.replace('^arg_s^', ' -u $(u)')
-
         if samples_per_row > 2:
             submit_string = submit_string.replace('^sample_string^', 's, u, v')
             submit_string = submit_string.replace('^arg_s^', ' -u $(u) -v ${v}')
@@ -523,10 +524,16 @@ queue ^sample_string^ from ^SAMPLE_SHEET_NAME^"
         # make logs folder just in case it was forgotten.
         os.makedirs(os.path.join(executable_dir, 'logs'), exist_ok=True)
         # make submission_file
+        tar_files = True
+        if keys_exists(self.config, keys=[mod, server, 'tar_files'])[0]:
+            tar_files_str = self.config[mod][server]['tar_files']
+            if tar_files_str.lower().startswith('f'):
+                tar_files = False
         self.make_submission_file(filepath=submit_filepath,
                                   chtc_mod_config=self.config[mod][server],
                                   samples_per_row=samples_per_row,
-                                  sample_sheet_path=sample_sheet_path)
+                                  sample_sheet_path=sample_sheet_path,
+                                  tar_files=tar_files)
         # copy the directory for a spot for the results to go
 
         arguments_dict = {}
@@ -553,6 +560,7 @@ queue ^sample_string^ from ^SAMPLE_SHEET_NAME^"
             for static_file in static_files_list:
                 source_filepath_list.append(os.path.join(self.get_unique_path(mod, server, 'static_dir'),
                                                          os.path.basename(static_file)))
+
         exe_results_dir = os.path.join(self.get_unique_path(mod, server, 'module_out_dir'),
                                        os.path.basename(executable_dir))
         self.make_chtc_wrapper_script(source_filepath_list=source_filepath_list,

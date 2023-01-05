@@ -29,19 +29,28 @@
 
 username=your_user_name
 remote_host=remote_host_ip_address
-
-ssh-keygen -t rsa -f ~/.ssh/id_rsa_${username}
-cp ~/.ssh/id_rsa_${username}.pub ~/.ssh/authorized_keys
-ssh-copy-id -i ~/.ssh/id_rsa_${username}.pub ${username}@${remote_host}
+hostname=oconnor_submit
+ssh-keygen -t rsa -f ~/.ssh/id_rsa_${hostname}
+cp ~/.ssh/id_rsa_${hostname}.pub ~/.ssh/authorized_keys
+echo "ssh-copy-id -i ~/.ssh/id_rsa_${hostname}.pub ${username}@${remote_host}"
 # type password two times.
 ```
 ```bash
 # add to .ssh/config: (i.e. bbedit or nano). Do not use text editor (adds a different new line style than expected)!!!
 echo ""; \
+echo "Host *"; \
+echo "  IdentitiesOnly yes"; \
+echo "  TCPKeepAlive yes"; \
+echo "  ServerAliveInterval 120"; \
+echo "  IPQoS=throughput"; \
+echo ""; \
 echo "Host ${remote_host}"; \
 echo "HostName ${remote_host}"; \
 echo "User ${username}"; \
-echo "Identityfile2 ~.ssh/${username}"
+echo "ControlPath ~/.ssh/%r@%h:%p"; \
+echo "ControlMaster auto"; \
+echo "ControlPersist yes"; \
+echo "Identityfile2 ~/.ssh/${hostname}"
 ```
 ```bash
 # test connection and approve connection
@@ -64,14 +73,14 @@ HostName host.ip.addr.XXX
 ControlPath ~/.ssh/%r@%h:%p
 ControlMaster auto
 ControlPersist yes
-Identityfile2 ~/.ssh/id_rsa_username
+Identityfile2 ~/.ssh/id_rsa_hostname
 
 Host host.ip.addr.XXY
 HostName host.ip.addr.XXY
 ControlPath ~/.ssh/%r@%h:%p
 ControlMaster auto
 ControlPersist yes
-Identityfile2 ~/.ssh/id_rsa_username2
+Identityfile2 ~/.ssh/id_rsa_hostname
 ```
 # Primary Components
 
