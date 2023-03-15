@@ -14,69 +14,77 @@ class SerpentOperations:
         self.ignore_mods = ignore_mods
 
     def parse_variablized_value(self, value, server, mod):
+        def _parse_variablized(value, server, mod):
+            if not ((value[0] == '<') and (value[len(value) - 1] == '>')):
+                return value
+
+            value_trim = value[1:-1]
+            values = value_trim.split(':')
+
+            if len(values) == 1:
+                try:
+                    if self.get_unique_path(mod, server, values[0]) is None:
+                        pass
+                    else:
+                        return self.get_unique_path(mod, server, values[0])
+                except:
+                    pass
+                try:
+                    return self.config[mod][server][values[0]]
+                except:
+                    pass
+                return value
+
+            if len(values) == 2:
+                try:
+                    if self.get_unique_path(mod, server, values[0]) is None:
+                        pass
+                    else:
+                        return self.get_unique_path(values[0], server, values[1])
+                except:
+                    pass
+                try:
+                    return self.config[values[0]][server][values[1]]
+                except:
+                    pass
+                return value
+            if len(values) == 3:
+                try:
+                    if self.get_unique_path(values[0], values[1], values[2]) is None:
+                        pass
+                    else:
+                        return self.get_unique_path(values[0], values[1], values[2])
+                except:
+                    pass
+                try:
+                    return self.config[values[0]][values[1]][values[2]]
+                except:
+                    pass
+                return value
+            if len(values) == 4:
+                try:
+                    if self.get_unique_path(mod, server, values[0]) is None:
+                        pass
+                    else:
+                        return self.get_path_by_drive(values[0], values[1], values[3], values[2])
+
+                except:
+                    pass
+                try:
+                    return self.config[values[0]][values[1]][values[2]][values[3]]
+                except:
+                    pass
+            return value
+
+        if isinstance(value, list):
+            temp_list = []
+            for item in value:
+                temp_list.append(_parse_variablized(item, server, mod))
+            return temp_list
         if not isinstance(value, str):
             return value
+        return _parse_variablized(value, server, mod)
 
-        if not ((value[0] == '<') and (value[len(value) - 1] == '>')):
-            return value
-
-        value_trim = value[1:-1]
-        values = value_trim.split(':')
-
-        if len(values) == 1:
-            try:
-                if self.get_unique_path(mod, server, values[0]) is None:
-                    pass
-                else:
-                    return self.get_unique_path(mod, server, values[0])
-            except:
-                pass
-            try:
-                return self.config[mod][server][values[0]]
-            except:
-                pass
-            return value
-
-        if len(values) == 2:
-            try:
-                if self.get_unique_path(mod, server, values[0]) is None:
-                    pass
-                else:
-                    return self.get_unique_path(values[0], server, values[1])
-            except:
-                pass
-            try:
-                return self.config[values[0]][server][values[1]]
-            except:
-                pass
-            return value
-        if len(values) == 3:
-            try:
-                if self.get_unique_path(values[0], values[1], values[2]) is None:
-                    pass
-                else:
-                    return self.get_unique_path(values[0], values[1], values[2])
-            except:
-                pass
-            try:
-                return self.config[values[0]][values[1]][values[2]]
-            except:
-                pass
-            return value
-        if len(values) == 4:
-            try:
-                if self.get_unique_path(mod, server, values[0]) is None:
-                    pass
-                else:
-                    return self.get_path_by_drive(values[0], values[1], values[3], values[2])
-
-            except:
-                pass
-            try:
-                return self.config[values[0]][values[1]][values[2]][values[3]]
-            except:
-                pass
-        return value
 
     def parse_variablized_config(self):
         def recurse_dict(d, server, mod):

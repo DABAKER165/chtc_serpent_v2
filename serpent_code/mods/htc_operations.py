@@ -302,6 +302,8 @@ class SerpentCHTCOperations(SerpentOperations):
         copy_files_to_node_string = '\n '.join(copy_files_to_node_string_list)
         arguments_string = ''
         for key, value in arguments_dict.items():
+            if ' ' in value:
+                value = '"{0}"'.format(value)
             arguments_string = '{0} {1} {2}'.format(arguments_string, key, value)
         # start with the options and bin bash statement
         script_string = '#! /bin/bash \n\
@@ -555,8 +557,14 @@ queue ^sample_string^ from ^SAMPLE_SHEET_NAME^"
             if isinstance(static_files_list, str):
                 static_files_list = static_files_list.split(',')
             if isinstance(static_files_list, dict):
-                static_files_list = list(set(static_files_list.values()))
+                temp_list = []
+                for file_id, path_value in static_files_list.items():
+                    if isinstance(path_value, list):
+                        path_value = os.path.join(*path_value)
+                    temp_list.append(path_value)
+                static_files_list = list(set(temp_list))
 
+            static_files_list = list(set(static_files_list))
             for static_file in static_files_list:
                 source_filepath_list.append(os.path.join(self.get_unique_path(mod, server, 'static_dir'),
                                                          os.path.basename(static_file)))

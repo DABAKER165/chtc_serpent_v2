@@ -252,7 +252,15 @@ def run_main(args):
                         if isinstance(static_files_list, str):
                             static_files_list = mod_config[server_name]['static_files'].split(',')
                         if isinstance(static_files_list, dict):
-                            static_files_list = list(set(static_files_list.values()))
+                            temp_list = []
+                            for file_id, path_value in static_files_list.items():
+                                if isinstance(path_value, list):
+                                    path_value = os.path.join(*path_value)
+                                    print(path_value)
+                                temp_list.append(path_value)
+                            static_files_list = list(set(temp_list))
+                            print(static_files_list)
+                        static_files_list = list(set(static_files_list))
                         # print(static_files_list)
                         remote_dict = sc.get_unique_un_server_path(mod_i, server_name, 'static_dir')
                         for static_file in static_files_list:
